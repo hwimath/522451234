@@ -1,0 +1,1089 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>미분계수와 미분가능성</title>
+
+  <!-- MathJax 로드 -->
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" defer></script>
+
+  <style>
+    body {
+      background: #ffffff;
+      color: #000000;
+      font-family: sans-serif;
+      margin: 20px;
+    }
+    h1, h2, h3 {
+      margin: 0.5em 0;
+    }
+    .hidden { display: none; }
+    .energy-bar {
+      width: 200px;
+      height: 20px;
+      background-color: #ccc;
+      position: relative;
+      margin: 10px 0;
+    }
+    .energy-fill {
+      position: absolute;
+      top: 0; left: 0; bottom: 0;
+      background-color: #000; /* 검정으로 표현 */
+      width: 100%; /* 초기엔 풀게이지 */
+      transition: width 1s linear;
+    }
+    button {
+      margin: 5px;
+      background-color: #fff;
+      color: #000;
+      border: 1px solid #000;
+      padding: 5px 10px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #000;
+      color: #fff;
+    }
+    #quiz-container {
+      margin-top: 20px;
+      border: 1px solid #000;
+      padding: 15px;
+    }
+    #response {
+      white-space: pre-wrap;
+      background: #f8f8f8;
+      padding: 10px;
+      margin-top: 10px;
+      border: 1px dashed #888;
+    }
+    .choice-container {
+      margin-top: 10px;
+    }
+    .choice-container label {
+      display: block;
+      margin: 4px 0;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+<h1>미분계수와 미분가능성</h1>
+
+<!-- 첫 화면: 이름 입력, 난이도 선택 -->
+<div id="start-screen">
+  <div>
+    <label>이름: <input type="text" id="userName" placeholder="이름을 입력하세요"></label>
+  </div>
+  <h3>난이도 선택</h3>
+  <div>
+    <button onclick="startGame('최상')">최상 (20초, 문제당 20점)</button>
+    <button onclick="startGame('상')">상 (30초, 문제당 15점)</button>
+    <button onclick="startGame('중')">중 (40초, 문제당 13점)</button>
+    <button onclick="startGame('하')">하 (시간제한 없음, 문제당 10점)</button>
+  </div>
+</div>
+
+<!-- 게임화면 -->
+<div id="game-screen" class="hidden">
+
+  <!-- 전체 게임 시간 표시 -->
+  <div>전체 진행 시간: <span id="totalTime">0</span> 초</div>
+  <!-- 남은 기회 표시 -->
+  <div>남은 기회: <span id="lives">3</span></div>
+  <!-- 현재 점수 표시 -->
+  <div>점수: <span id="score">0</span></div>
+
+  <!-- 에너지바 -->
+  <div id="energy-bar-section">
+    <div class="energy-bar">
+      <div class="energy-fill" id="energy-fill"></div>
+    </div>
+  </div>
+
+  <!-- 문제 표시 영역 -->
+  <div id="quiz-container">
+    <div id="question-text"></div>
+    <div class="choice-container" id="choice-container"></div>
+    <button id="submitBtn" onclick="submitAnswer()">제출</button>
+  </div>
+
+</div>
+
+<!-- 게임 종료 화면 -->
+<div id="end-screen" class="hidden">
+  <h2>게임 종료</h2>
+  <p>최종 점수: <span id="finalScore"></span></p>
+  <button onclick="sendScore()">점수전송</button>
+  <div id="response"></div>
+</div>
+
+<script>
+  /**************************************
+   * 1) 문제 데이터 (한 문제도 빠짐없음)
+   * 2) (문제, 보기[], 정답 인덱스)
+   * 3) 문제 번호는 표기하지 않고, 모두 무작위 출제
+   **************************************/
+  const questionBank = [
+
+    /* -----------------------
+       평균변화율 문제들 (1~13, 15~19, 20~30)
+       ----------------------- */
+
+    {
+      question: "\\(f(x) = -x + 2\\)에서 \\(x\\)의 값이 \\(-1\\)에서 \\(1\\)까지 변할 때의 평균변화율을 구하시오.",
+      choices: [
+        "(A) \\(-2\\)",
+        "(B) \\(-1\\)",
+        "(C) \\(0\\)",
+        "(D) \\(1\\)"
+      ],
+      answer: 1
+    },
+    {
+      question: "\\(f(x) = 2x^2 - 3\\)에서 \\(x\\)의 값이 \\(-1\\)에서 \\(1\\)까지 변할 때의 평균변화율을 구하시오.",
+      choices: [
+        "(A) \\(-1\\)",
+        "(B) \\(0\\)",
+        "(C) \\(1\\)",
+        "(D) \\(2\\)"
+      ],
+      answer: 1
+    },
+    {
+      question: "\\(f(x) = 3x^3 - 1\\)에서 \\(x\\)의 값이 \\(-1\\)에서 \\(1\\)까지 변할 때의 평균변화율을 구하시오.",
+      choices: [
+        "(A) \\(2\\)",
+        "(B) \\(3\\)",
+        "(C) \\(4\\)",
+        "(D) \\(6\\)"
+      ],
+      answer: 1
+    },
+    {
+      question: "\\(f(x) = x^2\\)에서 \\(x\\)의 값이 0에서 3까지 변할 때의 평균변화율을 구하시오.",
+      choices: [
+        "(A) \\(1\\)",
+        "(B) \\(2\\)",
+        "(C) \\(3\\)",
+        "(D) \\(4\\)"
+      ],
+      answer: 2
+    },
+    {
+      question: "\\(f(x) = x^2\\)에서 \\(x\\)의 값이 1에서 5까지 변할 때의 평균변화율을 구하시오.",
+      choices: [
+        "(A) \\(4\\)",
+        "(B) \\(5\\)",
+        "(C) \\(6\\)",
+        "(D) \\(8\\)"
+      ],
+      answer: 2
+    },
+    {
+      question: "\\(f(x) = x^2\\)에서 \\(x\\)의 값이 \\(a\\)에서 \\(a+h\\)까지 변할 때의 평균변화율을 구하시오.",
+      choices: [
+        "(A) \\(2a + h\\)",
+        "(B) \\(2a + 2h\\)",
+        "(C) \\(a + h\\)",
+        "(D) \\(2a\\)"
+      ],
+      answer: 0
+    },
+    {
+      question: "\\(f(x) = -x^2 + x\\)에서 \\(x\\)의 값이 1에서 3까지 변할 때의 평균변화율을 구하시오.",
+      choices: [
+        "(A) \\(-3\\)",
+        "(B) \\(-2\\)",
+        "(C) \\(-1\\)",
+        "(D) \\(0\\)"
+      ],
+      answer: 0
+    },
+    {
+      question: "\\(f(x) = x^2 + x\\)에서 \\(x\\)의 값이 \\(a\\)에서 \\(a+h\\)까지 변할 때의 평균변화율을 구하시오.",
+      choices: [
+        "(A) \\(2a + 1\\)",
+        "(B) \\(2a + h + 1\\)",
+        "(C) \\(2a + h\\)",
+        "(D) \\(a + h\\)"
+      ],
+      answer: 1
+    },
+    {
+      question: "\\(f(x) = x^2 - 4x\\)에서 \\(x\\)의 값이 \\(-1\\)에서 3까지 변할 때의 평균변화율을 구하시오.",
+      choices: [
+        "(A) \\(-3\\)",
+        "(B) \\(-2\\)",
+        "(C) \\(-1\\)",
+        "(D) \\(0\\)"
+      ],
+      answer: 1
+    },
+    {
+      question: "\\(f(x) = 3x^2 - x\\)에서 \\(x\\)의 값이 1에서 2까지 변할 때의 평균변화율을 구하시오.",
+      choices: [
+        "(A) \\(8\\)",
+        "(B) \\(6\\)",
+        "(C) \\(4\\)",
+        "(D) \\(2\\)"
+      ],
+      answer: 0
+    },
+    {
+      question: "\\(f(x) = x^3\\)에서 \\(x\\)의 값이 \\(a\\)에서 \\(a+\\Delta x\\)까지 변할 때의 평균변화율을 구하시오.",
+      choices: [
+        "(A) \\(3a^2 + 3a\\Delta x + (\\Delta x)^2\\)",
+        "(B) \\(3a^2 + (\\Delta x)^2\\)",
+        "(C) \\(3a + 3\\Delta x\\)",
+        "(D) \\(3a^2 + \\Delta x\\)"
+      ],
+      answer: 0
+    },
+    {
+      question: "\\(f(x) = 3x + 1\\)에서 \\(x\\)의 값이 2에서 \\(2 + \\Delta x\\)까지 변할 때의 평균변화율을 구하시오.",
+      choices: [
+        "(A) \\(1\\)",
+        "(B) \\(2\\)",
+        "(C) \\(3\\)",
+        "(D) \\(4\\)"
+      ],
+      answer: 2
+    },
+    {
+      question: "\\(f(x) = 3x + 1\\)에서 \\(x\\)의 값이 2에서 \\(2 + \\Delta x\\)까지 변할 때의 평균변화율을 구하시오. (중복)",
+      choices: [
+        "(A) \\(1\\)",
+        "(B) \\(2\\)",
+        "(C) \\(3\\)",
+        "(D) \\(4\\)"
+      ],
+      answer: 2
+    },
+    {
+      question: "\\(f(x) = x^2 + 3x\\)에서 \\(x\\)의 값이 1에서 \\(a\\)까지 변할 때 평균변화율이 6일 때, \\(a\\)의 값을 구하시오.",
+      choices: [
+        "(A) \\(1\\)",
+        "(B) \\(2\\)",
+        "(C) \\(3\\)",
+        "(D) \\(4\\)"
+      ],
+      answer: 1
+    },
+    {
+      question: "\\(f(x) = x^2 + 2x\\)에서 \\(x\\)의 값이 1에서 \\(a\\)까지 변할 때 평균변화율이 6일 때, \\(a\\)의 값을 구하시오.",
+      choices: [
+        "(A) \\(2\\)",
+        "(B) \\(3\\)",
+        "(C) \\(4\\)",
+        "(D) \\(5\\)"
+      ],
+      answer: 1
+    },
+    {
+      question: "\\(f(x) = x^2 + 2x - 1\\)에서 \\(x\\)의 값이 1에서 \\(a\\)까지 변할 때 평균변화율이 10일 때, \\(a\\)의 값을 구하시오.",
+      choices: [
+        "(A) \\(5\\)",
+        "(B) \\(6\\)",
+        "(C) \\(7\\)",
+        "(D) \\(8\\)"
+      ],
+      answer: 2
+    },
+    {
+      question: "\\(f(x) = x^2 - 3x + 4\\)에서 \\(x\\)의 값이 2에서 \\(a\\)까지 변할 때 평균변화율이 7일 때, \\(a\\)의 값을 구하시오.",
+      choices: [
+        "(A) \\(4\\)",
+        "(B) \\(6\\)",
+        "(C) \\(7\\)",
+        "(D) \\(8\\)"
+      ],
+      answer: 3
+    },
+    {
+      question: "\\(f(x) = x^2 - ax + 2\\)에서 \\(x\\)의 값이 2에서 4까지 변할 때 평균변화율이 3일 때, \\(a\\)의 값을 구하시오.",
+      choices: [
+        "(A) \\(1\\)",
+        "(B) \\(2\\)",
+        "(C) \\(3\\)",
+        "(D) \\(4\\)"
+      ],
+      answer: 2
+    },
+
+    /* -----------------------
+       미분계수의 정의 문제들 (20~30)
+       ----------------------- */
+
+    {
+      question: "\\(f(x) = x + 2\\)의 \\(x=1\\)에서의 미분계수를 미분계수의 정의로 구하시오.",
+      choices: [
+        "(A) \\(0\\)",
+        "(B) \\(1\\)",
+        "(C) \\(2\\)",
+        "(D) \\(3\\)"
+      ],
+      answer: 1
+    },
+    {
+      question: "\\(f(x) = 2x + 3\\)의 \\(x=1\\)에서의 미분계수를 미분계수의 정의로 구하시오.",
+      choices: [
+        "(A) \\(1\\)",
+        "(B) \\(2\\)",
+        "(C) \\(3\\)",
+        "(D) \\(4\\)"
+      ],
+      answer: 1
+    },
+    {
+      question: "\\(f(x) = 3x^2\\)의 \\(x=1\\)에서의 미분계수를 미분계수의 정의로 구하시오.",
+      choices: [
+        "(A) \\(3\\)",
+        "(B) \\(4\\)",
+        "(C) \\(5\\)",
+        "(D) \\(6\\)"
+      ],
+      answer: 3
+    },
+    {
+      question: "\\(f(x) = x^2 + 2x\\)의 \\(x=1\\)에서의 미분계수를 미분계수의 정의로 구하시오.",
+      choices: [
+        "(A) \\(2\\)",
+        "(B) \\(3\\)",
+        "(C) \\(4\\)",
+        "(D) \\(5\\)"
+      ],
+      answer: 2
+    },
+    {
+      question: "\\(f(x) = -3x^3 + 6x + 1\\)의 \\(x=1\\)에서의 미분계수를 미분계수의 정의로 구하시오.",
+      choices: [
+        "(A) \\(-3\\)",
+        "(B) \\(-2\\)",
+        "(C) \\(0\\)",
+        "(D) \\(3\\)"
+      ],
+      answer: 0
+    },
+    {
+      question: "\\(f(x) = 3x + 2\\)의 \\(x=2\\)에서의 미분계수를 구하시오.",
+      choices: [
+        "(A) \\(1\\)",
+        "(B) \\(2\\)",
+        "(C) \\(3\\)",
+        "(D) \\(4\\)"
+      ],
+      answer: 2
+    },
+    {
+      question: "\\(f(x) = -\\tfrac{1}{2}x^2\\)의 \\(x=2\\)에서의 미분계수를 구하시오.",
+      choices: [
+        "(A) \\(-4\\)",
+        "(B) \\(-2\\)",
+        "(C) \\(-1\\)",
+        "(D) \\(0\\)"
+      ],
+      answer: 1
+    },
+    {
+      question: "\\(f(x) = x^2 - 3x\\)의 \\(x=2\\)에서의 미분계수를 구하시오.",
+      choices: [
+        "(A) \\(1\\)",
+        "(B) \\(2\\)",
+        "(C) \\(3\\)",
+        "(D) \\(4\\)"
+      ],
+      answer: 0
+    },
+    {
+      question: "\\(f(x) = -x^2 + 2x\\)의 \\(x=2\\)에서의 미분계수를 구하시오.",
+      choices: [
+        "(A) \\(-2\\)",
+        "(B) \\(0\\)",
+        "(C) \\(1\\)",
+        "(D) \\(2\\)"
+      ],
+      answer: 0
+    },
+    {
+      question: "\\(f(x) = x^2 + 2\\)의 \\(x=a\\)에서의 미분계수가 4일 때, 양수 \\(a\\)의 값을 구하시오.",
+      choices: [
+        "(A) \\(1\\)",
+        "(B) \\(2\\)",
+        "(C) \\(3\\)",
+        "(D) \\(4\\)"
+      ],
+      answer: 1
+    },
+    {
+      question: "\\(f(x) = x^3 + x + 1\\)의 \\(x=a\\)에서의 미분계수가 4일 때, 양수 \\(a\\)의 값을 구하시오.",
+      choices: [
+        "(A) \\(1\\)",
+        "(B) \\(2\\)",
+        "(C) \\(3\\)",
+        "(D) \\(4\\)"
+      ],
+      answer: 0
+    },
+
+    /* -----------------------
+       f'(a)=2 일 때 (36~39)
+       ----------------------- */
+    {
+      question: "함수 \\(f(x)\\)에 대하여 \\(f'(a)=2\\)일 때, \\(\\lim_{h\\to 0}\\dfrac{f(a-3h)-f(a)}{h}\\) 의 값을 구하시오.",
+      choices: [
+        "(A) \\(-4\\)",
+        "(B) \\(-5\\)",
+        "(C) \\(-6\\)",
+        "(D) \\(-8\\)"
+      ],
+      answer: 2
+    },
+    {
+      question: "함수 \\(f(x)\\)에 대하여 \\(f'(a)=2\\)일 때, \\(\\lim_{h\\to 0}\\dfrac{f(a+5h)-f(a)}{h}\\) 의 값을 구하시오.",
+      choices: [
+        "(A) \\(6\\)",
+        "(B) \\(8\\)",
+        "(C) \\(10\\)",
+        "(D) \\(12\\)"
+      ],
+      answer: 2
+    },
+    {
+      question: "함수 \\(f(x)\\)에 대하여 \\(f'(a)=2\\)일 때, \\(\\lim_{h\\to 0}\\dfrac{f(a+3h)-f(a-h)}{h}\\) 의 값을 구하시오.",
+      choices: [
+        "(A) \\(6\\)",
+        "(B) \\(7\\)",
+        "(C) \\(8\\)",
+        "(D) \\(9\\)"
+      ],
+      answer: 2
+    },
+    {
+      question: "함수 \\(f(x)\\)에 대하여 \\(f'(a)=2\\)일 때, \\(\\lim_{h\\to 0}\\dfrac{f(a+4h)-f(a-2h)}{h}\\) 의 값을 구하시오.",
+      choices: [
+        "(A) \\(8\\)",
+        "(B) \\(10\\)",
+        "(C) \\(12\\)",
+        "(D) \\(14\\)"
+      ],
+      answer: 2
+    },
+
+    /* -----------------------
+       f'(a)=1 일 때 (40~43)
+       ----------------------- */
+    {
+      question: "함수 \\(f(x)\\)에 대하여 \\(f'(a)=1\\)일 때, \\(\\lim_{h\\to 0}\\dfrac{f(a+2h)-f(a)}{h}\\) 의 값을 구하시오.",
+      choices: [
+        "(A) \\(1\\)",
+        "(B) \\(2\\)",
+        "(C) \\(3\\)",
+        "(D) \\(4\\)"
+      ],
+      answer: 1
+    },
+    {
+      question: "함수 \\(f(x)\\)에 대하여 \\(f'(a)=1\\)일 때, \\(\\lim_{h\\to 0}\\dfrac{f(a-2h)-f(a)}{h}\\) 의 값을 구하시오.",
+      choices: [
+        "(A) \\(-2\\)",
+        "(B) \\(-1\\)",
+        "(C) \\(0\\)",
+        "(D) \\(1\\)"
+      ],
+      answer: 0
+    },
+    {
+      question: "함수 \\(f(x)\\)에 대하여 \\(f'(a)=1\\)일 때, \\(\\lim_{h\\to 0}\\dfrac{f(a+2h)-f(a-h)}{h}\\) 의 값을 구하시오.",
+      choices: [
+        "(A) \\(1\\)",
+        "(B) \\(2\\)",
+        "(C) \\(3\\)",
+        "(D) \\(4\\)"
+      ],
+      answer: 2
+    },
+    {
+      question: "함수 \\(f(x)\\)에 대하여 \\(f'(a)=1\\)일 때, \\(\\lim_{h\\to 0}\\dfrac{f(a+h)-f(a-h)}{h}\\) 의 값을 구하시오.",
+      choices: [
+        "(A) \\(1\\)",
+        "(B) \\(2\\)",
+        "(C) \\(3\\)",
+        "(D) \\(4\\)"
+      ],
+      answer: 1
+    },
+
+    /* -----------------------
+       f'(1)=-1 일 때 (44~46)
+       ----------------------- */
+    {
+      question: "함수 \\(f(x)\\)에 대하여 \\(f'(1)=-1\\)일 때, \\(\\lim_{x\\to 1}\\dfrac{f(x)-f(1)}{x^2 -1}\\) 의 값을 구하시오.",
+      choices: [
+        "(A) \\(-\\tfrac12\\)",
+        "(B) \\(-1\\)",
+        "(C) \\(-\\tfrac13\\)",
+        "(D) \\(-2\\)"
+      ],
+      answer: 0
+    },
+    {
+      question: "함수 \\(f(x)\\)에 대하여 \\(f'(1)=-1\\)일 때, \\(\\lim_{x\\to 1}\\dfrac{f(x^2)-f(1)}{x-1}\\) 의 값을 구하시오.",
+      choices: [
+        "(A) \\(-1\\)",
+        "(B) \\(-2\\)",
+        "(C) \\(-3\\)",
+        "(D) \\(-4\\)"
+      ],
+      answer: 1
+    },
+    {
+      question: "함수 \\(f(x)\\)에 대하여 \\(f'(1)=-1\\)일 때, \\(\\lim_{x\\to 1}\\dfrac{f(x)-f(1)}{x^3 -1}\\) 의 값을 구하시오.",
+      choices: [
+        "(A) \\(-1\\)",
+        "(B) \\(-\\tfrac12\\)",
+        "(C) \\(-\\tfrac13\\)",
+        "(D) \\(-\\tfrac14\\)"
+      ],
+      answer: 2
+    },
+
+    /* -----------------------
+       f(2)=2, f'(2)=4 일 때 (47~49)
+       ----------------------- */
+    {
+      question: "함수 \\(f(x)\\)에 대하여 \\(f(2)=2\\), \\(f'(2)=4\\)일 때, \\(\\lim_{x\\to 2}\\dfrac{f(x)-f(2)}{x^2 -4}\\) 의 값을 구하시오.",
+      choices: [
+        "(A) \\(\\tfrac12\\)",
+        "(B) \\(1\\)",
+        "(C) \\(2\\)",
+        "(D) \\(4\\)"
+      ],
+      answer: 1
+    },
+    {
+      question: "함수 \\(f(x)\\)에 대하여 \\(f(2)=2\\), \\(f'(2)=4\\)일 때, \\(\\lim_{x\\to 2}\\dfrac{f(x)-2}{x^3 -8}\\) 의 값을 구하시오.",
+      choices: [
+        "(A) \\(\\tfrac{1}{3}\\)",
+        "(B) \\(\\tfrac12\\)",
+        "(C) \\(1\\)",
+        "(D) \\(2\\)"
+      ],
+      answer: 0
+    },
+    {
+      question: "함수 \\(f(x)\\)에 대하여 \\(f(2)=2\\), \\(f'(2)=4\\)일 때, \\(\\lim_{x\\to 2}\\dfrac{2f(x) - x\\cdot f(2)}{x-2}\\) 의 값을 구하시오.",
+      choices: [
+        "(A) \\(4\\)",
+        "(B) \\(5\\)",
+        "(C) \\(6\\)",
+        "(D) \\(8\\)"
+      ],
+      answer: 2
+    },
+
+    /* -----------------------
+       접선 기울기 (53~63)
+       ----------------------- */
+    {
+      question: "\\(f(x)=x^2\\)에서 점 \\((2,4)\\)의 접선 기울기를 구하시오.",
+      choices: [
+        "(A) \\(2\\)",
+        "(B) \\(3\\)",
+        "(C) \\(4\\)",
+        "(D) \\(5\\)"
+      ],
+      answer: 2
+    },
+    {
+      question: "\\(f(x)=2x^2\\)에서 점 \\((-1,2)\\)의 접선 기울기를 구하시오.",
+      choices: [
+        "(A) \\(-4\\)",
+        "(B) \\(-2\\)",
+        "(C) \\(2\\)",
+        "(D) \\(4\\)"
+      ],
+      answer: 0
+    },
+    {
+      question: "\\(f(x)=x^2 -2\\)에서 점 \\((1,-1)\\)의 접선 기울기를 구하시오.",
+      choices: [
+        "(A) \\(-1\\)",
+        "(B) \\(0\\)",
+        "(C) \\(1\\)",
+        "(D) \\(2\\)"
+      ],
+      answer: 3
+    },
+    {
+      question: "\\(f(x)=2x^2+3\\)에서 점 \\((-1,5)\\)의 접선 기울기를 구하시오.",
+      choices: [
+        "(A) \\(-4\\)",
+        "(B) \\(-2\\)",
+        "(C) \\(0\\)",
+        "(D) \\(4\\)"
+      ],
+      answer: 0
+    },
+    {
+      question: "\\(f(x)=3x^2-4\\)에서 점 \\((1,-1)\\)의 접선 기울기를 구하시오.",
+      choices: [
+        "(A) \\(3\\)",
+        "(B) \\(4\\)",
+        "(C) \\(5\\)",
+        "(D) \\(6\\)"
+      ],
+      answer: 3
+    },
+    {
+      question: "\\(f(x)=x^2+2x\\)에서 점 \\((1,3)\\)의 접선 기울기를 구하시오.",
+      choices: [
+        "(A) \\(2\\)",
+        "(B) \\(3\\)",
+        "(C) \\(4\\)",
+        "(D) \\(5\\)"
+      ],
+      answer: 2
+    },
+    {
+      question: "\\(f(x)=x^2+4x\\)에서 점 \\((1,5)\\)의 접선 기울기를 구하시오.",
+      choices: [
+        "(A) \\(4\\)",
+        "(B) \\(5\\)",
+        "(C) \\(6\\)",
+        "(D) \\(8\\)"
+      ],
+      answer: 2
+    },
+    {
+      question: "\\(f(x)=x^2-6x\\)에서 점 \\((3,-9)\\)의 접선 기울기를 구하시오.",
+      choices: [
+        "(A) \\(-6\\)",
+        "(B) \\(-3\\)",
+        "(C) \\(0\\)",
+        "(D) \\(3\\)"
+      ],
+      answer: 2
+    },
+    {
+      question: "\\(f(x)=x^2-3x-2\\)에서 점 \\((3,-2)\\)의 접선 기울기를 구하시오.",
+      choices: [
+        "(A) \\(2\\)",
+        "(B) \\(3\\)",
+        "(C) \\(4\\)",
+        "(D) \\(5\\)"
+      ],
+      answer: 1
+    },
+    {
+      question: "\\(f(x)=2x^2+x-5\\)에서 점 \\((2,5)\\)의 접선 기울기를 구하시오.",
+      choices: [
+        "(A) \\(5\\)",
+        "(B) \\(7\\)",
+        "(C) \\(9\\)",
+        "(D) \\(11\\)"
+      ],
+      answer: 2
+    },
+    {
+      question: "\\(f(x)=x^3+4\\)에서 점 \\((2,12)\\)의 접선 기울기를 구하시오.",
+      choices: [
+        "(A) \\(6\\)",
+        "(B) \\(8\\)",
+        "(C) \\(10\\)",
+        "(D) \\(12\\)"
+      ],
+      answer: 3
+    },
+
+    /* -----------------------
+       연속성과 미분가능성 (77~83)
+       ----------------------- */
+    {
+      question: "\\(f(x)=|x|\\)에 대하여 \\(x=0\\)에서의 연속성과 미분가능성을 판정하시오.",
+      choices: [
+        "(A) 불연속",
+        "(B) 연속이나 미분불가능",
+        "(C) 연속이고 미분가능",
+        "(D) 불연속이지만 미분가능"
+      ],
+      answer: 1
+    },
+    {
+      question: "\\(f(x)=x+|x|\\)에 대하여 \\(x=0\\)에서의 연속성과 미분가능성을 판정하시오.",
+      choices: [
+        "(A) 불연속",
+        "(B) 연속이나 미분불가능",
+        "(C) 연속이고 미분가능",
+        "(D) 불연속이지만 미분가능"
+      ],
+      answer: 1
+    },
+    {
+      question: "\\(f(x)=x|x|\\)에 대하여 \\(x=0\\)에서의 연속성과 미분가능성을 판정하시오.",
+      choices: [
+        "(A) 불연속",
+        "(B) 연속이나 미분불가능",
+        "(C) 연속이고 미분가능",
+        "(D) 불연속이지만 미분가능"
+      ],
+      answer: 2
+    },
+    {
+      question: "\\(f(x)=3x^2+|x|\\)에 대하여 \\(x=0\\)에서의 연속성과 미분가능성을 판정하시오.",
+      choices: [
+        "(A) 불연속",
+        "(B) 연속이나 미분불가능",
+        "(C) 연속이고 미분가능",
+        "(D) 불연속이지만 미분가능"
+      ],
+      answer: 1
+    },
+    {
+      question: "\\(f(x)=\\begin{cases} x & (x\\ge 0)\\\\ 0 & (x<0) \\end{cases}\\)에서 \\(x=0\\)의 연속성과 미분가능성을 판정하시오.",
+      choices: [
+        "(A) 불연속",
+        "(B) 연속이나 미분불가능",
+        "(C) 연속이고 미분가능",
+        "(D) 불연속이지만 미분가능"
+      ],
+      answer: 1
+    },
+    {
+      question: "\\(f(x)=\\begin{cases} x^2 & (x\\ge 0)\\\\ 0 & (x<0) \\end{cases}\\)에서 \\(x=0\\)의 연속성과 미분가능성을 판정하시오.",
+      choices: [
+        "(A) 불연속",
+        "(B) 연속이나 미분불가능",
+        "(C) 연속이고 미분가능",
+        "(D) 불연속이지만 미분가능"
+      ],
+      answer: 2
+    },
+    {
+      question: "\\(f(x)=\\begin{cases} x^2 & (x\\ge 1)\\\\ x^2+2 & (x<1) \\end{cases}\\)에서 \\(x=1\\)의 연속성과 미분가능성을 판정하시오.",
+      choices: [
+        "(A) 연속이고 미분가능",
+        "(B) 연속이나 미분불가능",
+        "(C) 불연속",
+        "(D) 불연속이지만 미분가능"
+      ],
+      answer: 2
+    },
+
+    /* -----------------------
+       x=1 에서 미분가능 (85~90)
+       ----------------------- */
+    {
+      question: "\\(f(x)=\\begin{cases} x^3 & (x\\ge 1)\\\\ ax+b & (x<1) \\end{cases}\\)가 \\(x=1\\)에서 미분가능할 때, \\(a,b\\)의 값을 구하시오.",
+      choices: [
+        "(A) \\(a=2,\\; b=-1\\)",
+        "(B) \\(a=3,\\; b=-2\\)",
+        "(C) \\(a=3,\\; b=2\\)",
+        "(D) \\(a=-3,\\; b=1\\)"
+      ],
+      answer: 1
+    },
+    {
+      question: "\\(f(x)=\\begin{cases} x^2 & (x\\ge 1)\\\\ ax+b & (x<1) \\end{cases}\\)가 \\(x=1\\)에서 미분가능할 때, \\(a,b\\)의 값을 구하시오.",
+      choices: [
+        "(A) \\(a=1, b=0\\)",
+        "(B) \\(a=2, b=-1\\)",
+        "(C) \\(a=-2, b=3\\)",
+        "(D) \\(a=4, b=-3\\)"
+      ],
+      answer: 1
+    },
+    {
+      question: "\\(f(x)=\\begin{cases} ax-1 & (x\\ge 1)\\\\ x^2-b & (x<1) \\end{cases}\\)가 \\(x=1\\)에서 미분가능할 때, \\(a,b\\)의 값을 구하시오.",
+      choices: [
+        "(A) \\(a=1, b=1\\)",
+        "(B) \\(a=2, b=0\\)",
+        "(C) \\(a=2, b=2\\)",
+        "(D) \\(a=3, b=-1\\)"
+      ],
+      answer: 1
+    },
+    {
+      question: "\\(f(x)=\\begin{cases} -x^2+4x-1 & (x\\le 1)\\\\ ax+b & (x>1) \\end{cases}\\)가 \\(x=1\\)에서 미분가능할 때, \\(a,b\\)의 값을 구하시오.",
+      choices: [
+        "(A) \\(a=2,b=1\\)",
+        "(B) \\(a=2,b=0\\)",
+        "(C) \\(a=3,b=-1\\)",
+        "(D) \\(a=4,b=-2\\)"
+      ],
+      answer: 1
+    },
+    {
+      question: "\\(f(x)=\\begin{cases} ax^2 + bx & (x\\le 1)\\\\ 2bx+1 & (x>1) \\end{cases}\\)가 \\(x=1\\)에서 미분가능할 때, \\(a,b\\)의 값을 구하시오.",
+      choices: [
+        "(A) \\(a=-1, b=-1\\)",
+        "(B) \\(a=-1, b=-2\\)",
+        "(C) \\(a=-1, b=2\\)",
+        "(D) \\(a=1, b=-1\\)"
+      ],
+      answer: 1
+    },
+    {
+      question: "\\(f(x)=\\begin{cases} ax^2+3 & (x\\le 1)\\\\ x^2+ax+b & (x>1) \\end{cases}\\)가 \\(x=1\\)에서 미분가능할 때, \\(a,b\\)의 값을 구하시오.",
+      choices: [
+        "(A) \\(a=1, b=2\\)",
+        "(B) \\(a=2, b=2\\)",
+        "(C) \\(a=2, b=0\\)",
+        "(D) \\(a=3, b=-1\\)"
+      ],
+      answer: 1
+    }
+
+  ];
+
+  // 난이도별 설정
+  const difficultySettings = {
+    "최상": { timeLimit: 20, score: 20 },
+    "상":   { timeLimit: 30, score: 15 },
+    "중":   { timeLimit: 40, score: 13 },
+    "하":   { timeLimit: null, score: 10 } // 제한 시간 없음
+  };
+
+  // 전역 상태
+  let userName = "";
+  let difficulty = null;
+  let baseTime = 20;         // 에너지바(초)
+  let perQuestionScore = 20; // 문제 맞출 때 점수
+  let currentIndex = 0;      // 현재 문제 인덱스
+  let score = 0;             // 현재 점수
+  let lives = 3;             // 남은 기회
+  let totalTime = 0;         // 전체 경과 시간(초)
+  let timerInterval = null;  // 전체 타이머용
+  let energyTimer = null;    // 에너지바 타이머용
+
+  let questionOrder = []; // 문제 출제 순서
+  let usedQuestions = 0; // 이번 라운드에서 출제된 문제 수
+
+  function shuffleArray(arr){
+    for(let i=arr.length-1; i>0; i--){
+      const j = Math.floor(Math.random()* (i+1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+  }
+
+  function shuffleChoices(choices){
+    // 보기 배열을 무작위 섞고, 정답 인덱스도 재조정
+    // 하지만 여기서는 정답 인덱스만 추적하면 되므로,
+    // 보기와 정답을 함께 섞을 로직.
+    // 편의상 Fisher-Yates
+    let newChoices = [...choices];
+    let indices = [0,1,2,3];
+    shuffleArray(indices);
+
+    let shuffled = [];
+    let correct = questionBank[currentIndex].answer;
+    let newCorrect = -1;
+    for(let i=0; i<indices.length; i++){
+      shuffled[i] = newChoices[indices[i]];
+      if(indices[i] === correct){
+        newCorrect = i;
+      }
+    }
+    // 갱신
+    questionBank[currentIndex].choices = shuffled;
+    questionBank[currentIndex].answer = newCorrect;
+  }
+
+  function initGame(){
+    // 문제 순서 섞기
+    let indices = questionBank.map((_, i)=> i);
+    shuffleArray(indices);
+    questionOrder = indices;
+    currentIndex = 0;
+    usedQuestions = 0;
+  }
+
+  function startGame(diff){
+    userName = document.getElementById('userName').value.trim();
+    if(!userName){
+      alert("이름을 입력하세요.");
+      return;
+    }
+    difficulty = diff;
+    document.getElementById('start-screen').classList.add('hidden');
+    document.getElementById('game-screen').classList.remove('hidden');
+
+    baseTime = difficultySettings[diff].timeLimit;
+    perQuestionScore = difficultySettings[diff].score;
+
+    initGame(); // 문제 순서 섞고 시작
+    score = 0;
+    lives = 3;
+    totalTime = 0;
+    document.getElementById('score').textContent = score;
+    document.getElementById('lives').textContent = lives;
+    document.getElementById('totalTime').textContent = totalTime;
+
+    // 전체 진행 시간 타이머
+    if(timerInterval) clearInterval(timerInterval);
+    timerInterval = setInterval(()=>{
+      totalTime++;
+      document.getElementById('totalTime').textContent = totalTime;
+    },1000);
+
+    nextQuestion();
+  }
+
+  // 에너지바 설정
+  function startEnergyBar(){
+    if(energyTimer) clearInterval(energyTimer);
+    const fill = document.getElementById('energy-fill');
+    if(baseTime===null){
+      // 하(시간제한 없음)
+      fill.style.width = '100%';
+      return;
+    }
+    let remain = baseTime;
+    fill.style.width = '100%';
+
+    energyTimer = setInterval(()=>{
+      remain--;
+      let pct = (remain/baseTime)*100;
+      if(pct<0) pct=0;
+      fill.style.width = pct+'%';
+
+      if(remain<=0){
+        // 시간 초과 -> 기회 1 감소
+        loseLife();
+      }
+    },1000);
+  }
+
+  function loseLife(){
+    if(energyTimer) clearInterval(energyTimer);
+    lives--;
+    document.getElementById('lives').textContent = lives;
+    if(lives<=0){
+      endGame();
+    }else{
+      // 새로운 문제로 넘어감
+      nextQuestion();
+    }
+  }
+
+  function nextQuestion(){
+    // 문제를 모두 소진하면 다시 전부 섞어서 끝없이 낸다.
+    if(usedQuestions >= questionBank.length){
+      // 모든 문제를 다 풀었으므로, 다시 섞고 반복
+      initGame();
+    }
+    let qIndex = questionOrder[currentIndex];
+    usedQuestions++;
+    displayQuestion(qIndex);
+    currentIndex++;
+  }
+
+  function displayQuestion(qIndex){
+    const qObj = questionBank[qIndex];
+    // 보기 순서 섞기
+    shuffleChoices(qObj.choices);
+    document.getElementById('question-text').innerHTML = qObj.question;
+    const choiceContainer = document.getElementById('choice-container');
+    choiceContainer.innerHTML = "";
+
+    for(let i=0; i<4; i++){
+      let choice = qObj.choices[i];
+      let radioId = 'choice-'+i;
+      let label = document.createElement('label');
+      label.setAttribute('for', radioId);
+      label.innerHTML = `<input type="radio" name="choice" id="${radioId}" value="${i}"> ${choice}`;
+      choiceContainer.appendChild(label);
+    }
+
+    // 에너지바 시작
+    if(baseTime===null){
+      document.getElementById('energy-bar-section').classList.add('hidden');
+    }else{
+      document.getElementById('energy-bar-section').classList.remove('hidden');
+      startEnergyBar();
+    }
+
+    // 수식 렌더링
+    MathJax.typeset();
+  }
+
+  function submitAnswer(){
+    // 사용자가 체크한 보기 확인
+    const qIndex = questionOrder[currentIndex-1];
+    const qObj = questionBank[qIndex];
+    const radios = document.querySelectorAll('input[name="choice"]');
+    let selected = -1;
+    for(let i=0; i<radios.length; i++){
+      if(radios[i].checked){
+        selected = parseInt(radios[i].value,10);
+        break;
+      }
+    }
+    if(selected<0){
+      alert("보기를 선택하세요!");
+      return;
+    }
+
+    // 정답 체크
+    if(selected === qObj.answer){
+      // 정답
+      score += perQuestionScore;
+      document.getElementById('score').textContent = score;
+      // 다음 문제
+      if(energyTimer) clearInterval(energyTimer);
+      nextQuestion();
+    }else{
+      // 오답
+      alert("오답입니다! 정답: " + qObj.choices[qObj.answer]);
+      loseLife();
+    }
+  }
+
+  function endGame(){
+    if(timerInterval) clearInterval(timerInterval);
+    if(energyTimer) clearInterval(energyTimer);
+    document.getElementById('game-screen').classList.add('hidden');
+    document.getElementById('end-screen').classList.remove('hidden');
+    document.getElementById('finalScore').textContent = score;
+  }
+
+  // 점수 전송
+  async function sendScore(){
+    const game = "미분계수와 미분가능성";
+    const name = userName;
+    const elapsedTime = totalTime;
+    const FUNCTION_URL = "https://us-central1-record-f420d.cloudfunctions.net/report";
+
+    const requestData = {
+        game,
+        name,
+        score: parseInt(score, 10),
+        elapsedTime: parseInt(elapsedTime, 10)
+    };
+
+    try {
+      const response = await fetch(FUNCTION_URL, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(requestData)
+      });
+      const responseData = await response.json();
+      if (response.ok) {
+          document.getElementById('response').innerText =
+              "성공: " + JSON.stringify(responseData, null, 2);
+      } else {
+          document.getElementById('response').innerText =
+              "오류: " + JSON.stringify(responseData, null, 2);
+      }
+    } catch (error) {
+      console.error('요청 실패:', error);
+      document.getElementById('response').innerText =
+          "네트워크 오류: " + error.message;
+    }
+  }
+
+</script>
+</body>
+</html>
