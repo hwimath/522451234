@@ -28,7 +28,7 @@
     .energy-fill {
       position: absolute;
       top: 0; left: 0; bottom: 0;
-      background-color: #000; /* 검정으로 표현 */
+      background-color: #000;
       width: 100%; /* 초기엔 풀게이지 */
       transition: width 1s linear;
     }
@@ -120,9 +120,9 @@
 
 <script>
   /**************************************
-   * 1) 문제 데이터 (한 문제도 빠짐없음)
-   * 2) (문제, 보기[], 정답 인덱스)
-   * 3) 문제 번호는 표기하지 않고, 모두 무작위 출제
+   * 1) 문제 데이터 (한 문제도 빠짐없이)
+   * 2) 각 문제는 (문제, 보기 배열, 정답 인덱스) 형태로 저장됨.
+   * 3) 문제 번호는 표시하지 않고 모두 무작위 출제.
    **************************************/
   const questionBank = [
 
@@ -857,50 +857,50 @@
   let energyTimer = null;    // 에너지바 타이머용
 
   let questionOrder = []; // 문제 출제 순서
-  let usedQuestions = 0; // 이번 라운드에서 출제된 문제 수
+  let usedQuestions = 0;  // 이번 라운드에서 출제된 문제 수
 
-  function shuffleArray(arr){
-    for(let i=arr.length-1; i>0; i--){
-      const j = Math.floor(Math.random()* (i+1));
+  function shuffleArray(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
       [arr[i], arr[j]] = [arr[j], arr[i]];
     }
   }
 
-  function shuffleChoices(choices){
-    // 보기 배열을 무작위 섞고, 정답 인덱스도 재조정
-    // 하지만 여기서는 정답 인덱스만 추적하면 되므로,
-    // 보기와 정답을 함께 섞을 로직.
-    // 편의상 Fisher-Yates
-    let newChoices = [...choices];
-    let indices = [0,1,2,3];
+  // 수정된 shuffleChoices 함수: 문제 객체(qObj)를 인자로 받아서 처리
+  function shuffleChoices(qObj) {
+    // 기존 보기 배열 복사
+    let newChoices = [...qObj.choices];
+    let indices = [0, 1, 2, 3];
     shuffleArray(indices);
 
     let shuffled = [];
-    let correct = questionBank[currentIndex].answer;
+    let correct = qObj.answer;  // qObj 내의 정답 인덱스를 사용
     let newCorrect = -1;
-    for(let i=0; i<indices.length; i++){
+
+    // 보기 배열을 섞으면서 원래 정답이 섞인 후 몇 번째 인덱스가 되는지 찾음
+    for (let i = 0; i < indices.length; i++) {
       shuffled[i] = newChoices[indices[i]];
-      if(indices[i] === correct){
+      if (indices[i] === correct) {
         newCorrect = i;
       }
     }
-    // 갱신
-    questionBank[currentIndex].choices = shuffled;
-    questionBank[currentIndex].answer = newCorrect;
+    // 문제 객체의 보기를 새 배열로 교체하고 정답 인덱스도 갱신
+    qObj.choices = shuffled;
+    qObj.answer = newCorrect;
   }
 
-  function initGame(){
+  function initGame() {
     // 문제 순서 섞기
-    let indices = questionBank.map((_, i)=> i);
+    let indices = questionBank.map((_, i) => i);
     shuffleArray(indices);
     questionOrder = indices;
     currentIndex = 0;
     usedQuestions = 0;
   }
 
-  function startGame(diff){
+  function startGame(diff) {
     userName = document.getElementById('userName').value.trim();
-    if(!userName){
+    if (!userName) {
       alert("이름을 입력하세요.");
       return;
     }
@@ -920,20 +920,20 @@
     document.getElementById('totalTime').textContent = totalTime;
 
     // 전체 진행 시간 타이머
-    if(timerInterval) clearInterval(timerInterval);
-    timerInterval = setInterval(()=>{
+    if (timerInterval) clearInterval(timerInterval);
+    timerInterval = setInterval(() => {
       totalTime++;
       document.getElementById('totalTime').textContent = totalTime;
-    },1000);
+    }, 1000);
 
     nextQuestion();
   }
 
   // 에너지바 설정
-  function startEnergyBar(){
-    if(energyTimer) clearInterval(energyTimer);
+  function startEnergyBar() {
+    if (energyTimer) clearInterval(energyTimer);
     const fill = document.getElementById('energy-fill');
-    if(baseTime===null){
+    if (baseTime === null) {
       // 하(시간제한 없음)
       fill.style.width = '100%';
       return;
@@ -941,34 +941,34 @@
     let remain = baseTime;
     fill.style.width = '100%';
 
-    energyTimer = setInterval(()=>{
+    energyTimer = setInterval(() => {
       remain--;
-      let pct = (remain/baseTime)*100;
-      if(pct<0) pct=0;
-      fill.style.width = pct+'%';
+      let pct = (remain / baseTime) * 100;
+      if (pct < 0) pct = 0;
+      fill.style.width = pct + '%';
 
-      if(remain<=0){
+      if (remain <= 0) {
         // 시간 초과 -> 기회 1 감소
         loseLife();
       }
-    },1000);
+    }, 1000);
   }
 
-  function loseLife(){
-    if(energyTimer) clearInterval(energyTimer);
+  function loseLife() {
+    if (energyTimer) clearInterval(energyTimer);
     lives--;
     document.getElementById('lives').textContent = lives;
-    if(lives<=0){
+    if (lives <= 0) {
       endGame();
-    }else{
+    } else {
       // 새로운 문제로 넘어감
       nextQuestion();
     }
   }
 
-  function nextQuestion(){
+  function nextQuestion() {
     // 문제를 모두 소진하면 다시 전부 섞어서 끝없이 낸다.
-    if(usedQuestions >= questionBank.length){
+    if (usedQuestions >= questionBank.length) {
       // 모든 문제를 다 풀었으므로, 다시 섞고 반복
       initGame();
     }
@@ -978,17 +978,17 @@
     currentIndex++;
   }
 
-  function displayQuestion(qIndex){
+  function displayQuestion(qIndex) {
     const qObj = questionBank[qIndex];
-    // 보기 순서 섞기
-    shuffleChoices(qObj.choices);
+    // 수정된 shuffleChoices 함수에 qObj 전체를 넘김
+    shuffleChoices(qObj);
     document.getElementById('question-text').innerHTML = qObj.question;
     const choiceContainer = document.getElementById('choice-container');
     choiceContainer.innerHTML = "";
 
-    for(let i=0; i<4; i++){
+    for (let i = 0; i < 4; i++) {
       let choice = qObj.choices[i];
-      let radioId = 'choice-'+i;
+      let radioId = 'choice-' + i;
       let label = document.createElement('label');
       label.setAttribute('for', radioId);
       label.innerHTML = `<input type="radio" name="choice" id="${radioId}" value="${i}"> ${choice}`;
@@ -996,9 +996,9 @@
     }
 
     // 에너지바 시작
-    if(baseTime===null){
+    if (baseTime === null) {
       document.getElementById('energy-bar-section').classList.add('hidden');
-    }else{
+    } else {
       document.getElementById('energy-bar-section').classList.remove('hidden');
       startEnergyBar();
     }
@@ -1007,83 +1007,82 @@
     MathJax.typeset();
   }
 
-  function submitAnswer(){
+  function submitAnswer() {
     // 사용자가 체크한 보기 확인
-    const qIndex = questionOrder[currentIndex-1];
+    const qIndex = questionOrder[currentIndex - 1];
     const qObj = questionBank[qIndex];
     const radios = document.querySelectorAll('input[name="choice"]');
     let selected = -1;
-    for(let i=0; i<radios.length; i++){
-      if(radios[i].checked){
-        selected = parseInt(radios[i].value,10);
+    for (let i = 0; i < radios.length; i++) {
+      if (radios[i].checked) {
+        selected = parseInt(radios[i].value, 10);
         break;
       }
     }
-    if(selected<0){
+    if (selected < 0) {
       alert("보기를 선택하세요!");
       return;
     }
 
     // 정답 체크
-    if(selected === qObj.answer){
+    if (selected === qObj.answer) {
       // 정답
       score += perQuestionScore;
       document.getElementById('score').textContent = score;
       // 다음 문제
-      if(energyTimer) clearInterval(energyTimer);
+      if (energyTimer) clearInterval(energyTimer);
       nextQuestion();
-    }else{
+    } else {
       // 오답
       alert("오답입니다! 정답: " + qObj.choices[qObj.answer]);
       loseLife();
     }
   }
 
-  function endGame(){
-    if(timerInterval) clearInterval(timerInterval);
-    if(energyTimer) clearInterval(energyTimer);
+  function endGame() {
+    if (timerInterval) clearInterval(timerInterval);
+    if (energyTimer) clearInterval(energyTimer);
     document.getElementById('game-screen').classList.add('hidden');
     document.getElementById('end-screen').classList.remove('hidden');
     document.getElementById('finalScore').textContent = score;
   }
 
   // 점수 전송
-  async function sendScore(){
+  async function sendScore() {
     const game = "미분계수와 미분가능성";
     const name = userName;
     const elapsedTime = totalTime;
     const FUNCTION_URL = "https://us-central1-record-f420d.cloudfunctions.net/report";
 
     const requestData = {
-        game,
-        name,
-        score: parseInt(score, 10),
-        elapsedTime: parseInt(elapsedTime, 10)
+      game,
+      name,
+      score: parseInt(score, 10),
+      elapsedTime: parseInt(elapsedTime, 10)
     };
 
     try {
       const response = await fetch(FUNCTION_URL, {
         method: 'POST',
         headers: {
-            'Content-Type': 'application/json'
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify(requestData)
       });
       const responseData = await response.json();
       if (response.ok) {
-          document.getElementById('response').innerText =
-              "성공: " + JSON.stringify(responseData, null, 2);
+        document.getElementById('response').innerText =
+          "성공: " + JSON.stringify(responseData, null, 2);
       } else {
-          document.getElementById('response').innerText =
-              "오류: " + JSON.stringify(responseData, null, 2);
+        document.getElementById('response').innerText =
+          "오류: " + JSON.stringify(responseData, null, 2);
       }
     } catch (error) {
       console.error('요청 실패:', error);
       document.getElementById('response').innerText =
-          "네트워크 오류: " + error.message;
+        "네트워크 오류: " + error.message;
     }
   }
-
 </script>
 </body>
 </html>
